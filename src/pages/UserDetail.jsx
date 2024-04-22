@@ -1,112 +1,74 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
+import axios from "axios";
+import { useEffect, useState } from "react"
+import { useNavigate, useParams } from "react-router-dom";
 
-const ContactsPage = () => {
-    const [contacts, setContacts] = useState([]);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [contactsPerPage] = useState(5); // Change this value to adjust contacts per page
-    const [displayMode, setDisplayMode] = useState('table'); // State to track display mode
+const Details = () => {
+  const params = useParams();
+  const navigate = useNavigate();
 
-    useEffect(() => {
-        fetchContacts();
-    }, []);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [contact, setContact] = useState({});
 
-    const fetchContacts = () => {
-        axios.get('https://contact-app-server-nxgi.onrender.com/api/v1/contactapp/contact/list')
-            .then((res) => {
-                setContacts(res.data.contacts);
-            })
-            .catch((err) => {
-                console.log(err);
-                alert("Fetching contacts failed");
-            });
-    };
+  useEffect(() => {
+    axios.get(`https://contact-app-server-nxgi.onrender.com/api/v1/contactapp/contact/findById?id=${params.contactId}`)
+      .then(response => {
+        setContact(response.data.contact);
+      })
+      .catch(err => { console.error(err);})
+  }, [params.contactId])
 
-    // Get current contacts
-    const indexOfLastContact = currentPage * contactsPerPage;
-    const indexOfFirstContact = indexOfLastContact - contactsPerPage;
-    const currentContacts = contacts.slice(indexOfFirstContact, indexOfLastContact);
+  const deleteContact = (e) => {
+    e.preventDefault();
+  
+    setError('');
+    setMessage('');
+  
+    // Ensure that the correct URL is used for the delete request
+    axios.delete(`https://contact-app-server-nxgi.onrender.com/api/v1/contactapp/contact/delete?id=${params.contactId}`)
+      .then(response => {
+        if (response.status === 200) {
+          setMessage(response.data.message);
+          
+          setTimeout(() => {
+            navigate('/'); // Redirect to ContactsPage after successful deletion
+          }, 3000);
+        }
+      })
+      .catch(err => { 
+        setError(err.message); // Set error message from the Axios error
+        console.error(err);
+      })
+  };
+  
 
-    // Change page
-    const paginate = pageNumber => setCurrentPage(pageNumber);
-
-    const handleDisplayModeChange = (e) => {
-        setDisplayMode(e.target.value);
-    };
-
-    return (
-        <div className='flex flex-col items-center pt-24'>
-            <button className='bg-[#fb153b] text-white font-bold py-1 px-2 mt-4 mb-4'>
-                <Link to="/sign">Create new contact</Link>
-            </button>
-            <div className="mb-4">
-                <label htmlFor="displayMode" className="font-bold mr-2">Display Mode:</label>
-                <select id="displayMode" value={displayMode} onChange={handleDisplayModeChange} className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md">
-                    <option value="table">Table</option>
-                    <option value="cards">Cards</option>
-                </select>
+  return (
+    <div className="container mx-auto px-4 pt-24">
+      <div className="max-w-md mx-auto mt-10 bg-black text-white rounded-lg shadow-md overflow-hidden">
+        <div className="p-4">
+          {message && <p className="bg-green-200 text-green-900 p-3 rounded-lg">{message}</p>}
+          {error && <p className="bg-red-200 text-red-900 p-3 rounded-lg">{error}</p>}
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-semibold mb-3">{contact.fullName}</h1>
+            <div className="flex gap-4">
+              <button onClick={() => navigate(`/update/${contact._id}`)} className="py-3 px-6 bg-blue-500 text-white rounded-lg text-base hover:bg-blue-600 transition duration-300">Update</button>
+              <button onClick={deleteContact} className="py-3 px-6 bg-red-500 text-white rounded-lg text-base hover:bg-red-600 transition duration-300">Delete</button>
             </div>
-            {contacts.length > 0 ? (
-                <>
-                    {displayMode === 'table' ? (
-                        <table className='table-auto'>
-                            <thead>
-                                <tr>
-                                    <th className='px-4 py-2'>Full Name</th>
-                                    <th className='px-4 py-2'>More Details</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {currentContacts.map((contact, index) => (
-                                    <tr key={index}>
-                                        <td className='border px-4 py-2'>{contact.fullName}</td>
-                                        <td className='border px-4 py-2'>
-                                            <Link to={`/details/${contact._id}`} className='bg-[#fb153b] text-white font-bold py-1 px-2 rounded-lg'>
-                                                More Details
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                            {currentContacts.map((contact, index) => (
-                                <div key={index} className="flex flex-col items-center border p-4">
-                                    <p className="font-bold">{contact.fullName}</p>
-                                    <Link to={`/details/${contact._id}`} className='bg-[#fb153b] text-white font-bold py-1 px-2 rounded-lg mt-2'>
-                                        More Details
-                                    </Link>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    <ul className="pagination flex bg-black rounded-lg mt-4">
-                        <li>
-                            <button onClick={() => paginate(currentPage - 1)} className='px-3 py-1 text-white' disabled={currentPage === 1}>
-                                &lt; Prev
-                            </button>
-                        </li>
-                        {Array.from({ length: Math.ceil(contacts.length / contactsPerPage) }).map((_, index) => (
-                            <li key={index} className={currentPage === index + 1 ? 'active' : null}>
-                                <button onClick={() => paginate(index + 1)} className='px-3 py-1 text-white'>
-                                    {index + 1}
-                                </button>
-                            </li>
-                        ))}
-                        <li>
-                            <button onClick={() => paginate(currentPage + 1)} className='px-3 py-1 text-white' disabled={currentPage === Math.ceil(contacts.length / contactsPerPage)}>
-                                Next &gt;
-                            </button>
-                        </li>
-                    </ul>
-                </>
-            ) : (
-                <p>No contacts found!</p>
-            )}
+          </div>
+          <div className="mt-4">
+            <p className="font-bold">Email:</p>
+            <p>{contact.email}</p>
+            <p className="font-bold">Phone:</p>
+            <p>{contact.phone}</p>
+            <p className="font-bold">Created on:</p>
+            <p>{new Date(contact.createdAt).toUTCString()}</p>
+            <p className="font-bold">Updated on:</p>
+            <p>{new Date(contact.updatedAt).toUTCString()}</p>
+          </div>
         </div>
-    );
-};
+      </div>
+    </div>
+  )
+}
 
-export default ContactsPage;
+export default Details
